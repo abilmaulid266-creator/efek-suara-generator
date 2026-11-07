@@ -1,3 +1,4 @@
+Apa yang baru dari fitur teks? Kita bisa memantau karakter, misalnya kita sudah memasukkan 5 karakter, nanti akan jadi 5/500 karakter. Itu untuk maksimal karakternya, dan jika sudah melebihi batas, tombol "Generate Sound Effect" tidak bisa diklik. Pembaruan kedua, saya telah memperbarui ekstensi ini dari jarak jauh melalui server
 require "import"
 import "android.app.AlertDialog"
 import "android.widget.*"
