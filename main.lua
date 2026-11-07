@@ -17,6 +17,7 @@ import "android.view.WindowManager"
 import "android.os.Build"
 import "android.content.Intent"
 import "android.net.Uri"
+import "android.text.TextWatcher"
 
 local ctx = service or activity
 local handler = Handler(Looper.getMainLooper())
@@ -63,12 +64,31 @@ mainLayout.addView(title)
 -- Input Teks / Deskripsi Suara
 local inputLayout = LinearLayout(ctx)
 inputLayout.setOrientation(LinearLayout.VERTICAL)
+
+-- Layout Label dan Penghitung Karakter
+local labelLayout = LinearLayout(ctx)
+labelLayout.setOrientation(LinearLayout.HORIZONTAL)
 local inputLabel = TextView(ctx)
 inputLabel.setText("Deskripsi Efek Suara:")
 inputLabel.setTextSize(16)
+
+-- Spacer agar penghitung karakter berada di kanan
+local spacer = View(ctx)
+spacer.setLayoutParams(LinearLayout.LayoutParams(0, 1, 1))
+
+local charCountText = TextView(ctx)
+charCountText.setText("0/500")
+charCountText.setTextSize(14)
+charCountText.setTextColor(Color.GRAY)
+
+labelLayout.addView(inputLabel)
+labelLayout.addView(spacer)
+labelLayout.addView(charCountText)
+
 local promptInput = EditText(ctx)
 promptInput.setHint("Contoh: A futuristic laser blast with metallic echo")
-inputLayout.addView(inputLabel)
+
+inputLayout.addView(labelLayout)
 inputLayout.addView(promptInput)
 mainLayout.addView(inputLayout)
 
@@ -159,10 +179,35 @@ mainLayout.addView(loopCheckbox)
 -- Tombol Generate
 local btnGenerate = Button(ctx)
 btnGenerate.setText("Generate Sound Effect")
+btnGenerate.setEnabled(false) -- Mati di awal karena input kosong
 local btnParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
 btnParams.setMargins(0, 30, 0, 0)
 btnGenerate.setLayoutParams(btnParams)
 mainLayout.addView(btnGenerate)
+
+-- Pemantau Jumlah Karakter di Input Text (Real-time)
+promptInput.addTextChangedListener(TextWatcher{
+    beforeTextChanged = function(s, start, count, after) end,
+    onTextChanged = function(s, start, before, count)
+        local textStr = tostring(s)
+        local len = textStr:len()
+        charCountText.setText(len .. "/500")
+        
+        -- Matikan tombol jika kosong atau lebih dari 500 karakter
+        if len == 0 or len > 500 then
+            btnGenerate.setEnabled(false)
+            if len > 500 then
+                charCountText.setTextColor(Color.RED)
+            else
+                charCountText.setTextColor(Color.GRAY)
+            end
+        else
+            btnGenerate.setEnabled(true)
+            charCountText.setTextColor(Color.GRAY)
+        end
+    end,
+    afterTextChanged = function(s) end
+})
 
 -- Teks Pesan Error (Ditampilkan jika terjadi error API)
 local errorTextView = TextView(ctx)
@@ -172,9 +217,9 @@ errorTextView.setPadding(0, 10, 0, 10)
 errorTextView.setVisibility(View.GONE) -- Sembunyikan secara default
 mainLayout.addView(errorTextView)
 
--- Tombol Preset
+-- Tombol Preset (Diubah dari "Pilih Preset" menjadi "Preset")
 local btnPreset = Button(ctx)
-btnPreset.setText("Pilih Preset")
+btnPreset.setText("Preset")
 local btnPresetParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
 btnPresetParams.setMargins(0, 15, 0, 0)
 btnPreset.setLayoutParams(btnPresetParams)
@@ -567,7 +612,7 @@ btnGenerate.setOnClickListener(View.OnClickListener{
                     
                     local responseString = sb.toString()
                     
-                    -- Parsing JSON dengan aman menggunakan optString/optJSONObject
+                    -- Parsing JSON dengan aman
                     local ok, jo = pcall(function() return JSONObject(responseString) end)
                     
                     if ok and jo then
@@ -580,7 +625,6 @@ btnGenerate.setOnClickListener(View.OnClickListener{
                                 success = true
                             end
                         else
-                            -- Parsing Pesan Error dari ElevenLabs
                             local detailStr = jo.optString("detail", "")
                             if detailStr ~= "" then
                                 errorMessage = "ElevenLabs Error: " .. detailStr
@@ -605,8 +649,14 @@ btnGenerate.setOnClickListener(View.OnClickListener{
                 
                 handler.post(Runnable{
                     run = function()
+                        -- Tombol Generate dikembalikan hanya jika input teks valid
+                        local currentLen = promptInput.getText().toString():len()
                         btnGenerate.setText("Generate Sound Effect")
-                        btnGenerate.setEnabled(true)
+                        if currentLen > 0 and currentLen <= 500 then
+                            btnGenerate.setEnabled(true)
+                        else
+                            btnGenerate.setEnabled(false)
+                        end
                         
                         if not status then
                             showToast("Gagal memproses data internal sistem.")
@@ -625,7 +675,6 @@ btnGenerate.setOnClickListener(View.OnClickListener{
                                 end
                             })
                         else
-                            -- Menampilkan error murni dari ElevenLabs di layar
                             showToast(errorMessage)
                             errorTextView.setText(errorMessage)
                             errorTextView.setVisibility(View.VISIBLE)
